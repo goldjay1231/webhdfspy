@@ -18,7 +18,6 @@ except ImportError:
         except ImportError:
             raise ImportError("Unable to load a json library")
 
-CONTEXT_ROOT = '/webhdfs/v1'
 OFFSET = 32768  # Default offset in bytes
 
 
@@ -32,7 +31,8 @@ class WebHDFSException(Exception):
 
 class WebHDFSClient(object):
 
-    def __init__(self, host, port, username=None, logger=None):
+    def __init__(self, host, port, username=None, password=None, logger=None,
+                 prefix='/gateway/default/webhdfs/v1'):
         """
         Create a new WebHDFS client.
 
@@ -44,21 +44,24 @@ class WebHDFSClient(object):
         self.host = host
         self.port = port
         self.user = username
-        self.namenode_url = 'http://%s:%s%s' % (host, port, CONTEXT_ROOT)
+        self.password = password
+        #self.namenode_url = 'https://%s:%s@%s:%s%s' % (username, password, host, port, prefix)
+        self.namenode_url = 'https://%s:%s%s' % (host, port, prefix)
         self.logger = logger or logging.getLogger(__name__)
 
-    def _make_request(self, method, path, params, allow_redirects=False):
+    def _make_request(self, method, path, params=None, allow_redirects=False):
         """
         Make an HTTP request to the namenode
         """
-        params['user.name'] = 'fabio'
-        return requests.request(method, "%s%s" % (self.namenode_url, path), params=params, allow_redirects=allow_redirects)
+        #params['user.name'] = 'fabio'
+        return requests.request(method, "%s%s" % (self.namenode_url, path), params=params, allow_redirects=allow_redirects,
+                                auth=(self.user, self.password), verify=False)
 
-    def _query(self, method, path, params, json_path=['boolean'], allow_redirects=False):
+    def _query(self, method, path, params=None, json_path=['boolean'], allow_redirects=False):
         """
         Call the function to make the request and handle the response
         """
-        params['user.name'] = 'fabio'
+        #params['user.name'] = 'fabio'
         r = self._make_request(method, path, params, allow_redirects)
         r.raise_for_status()
 
@@ -197,7 +200,9 @@ class WebHDFSClient(object):
         r = self._make_request(method='put', path=path, params=params, allow_redirects=False)
         datanode_url = r.headers['location']
 
-        r = requests.put(datanode_url, data=file_data, headers={'content-type': 'application/octet-stream'})
+        r = requests.put(datanode_url, data=file_data,
+                         headers={'content-type': 'application/octet-stream'},
+                         auth=(self.user, self.password), verify=False)
         r.raise_for_status()
         return True
 
